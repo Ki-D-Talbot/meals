@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meal Tracker Calendar</title>
+    
+    <!-- FullCalendar CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.css" rel="stylesheet">
+    
+    <!-- FullCalendar JS -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.js"></script>
+    
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; text-align: center; }
+        #calendar { max-width: 800px; margin: auto; }
+    </style>
+</head>
+<body>
+
+    <h2>Meal Tracker</h2>
+    <div id="calendar"></div>
+    <h1>Welcome, {{ username }}!</h1>
+    <p><a href="{{ url_for('logout') }}">Logout</a></p>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                selectable: true,
+                dateClick: function(info) {
+                    let selectedDate = info.dateStr;
+                    let meal = prompt(`Enter meal for ${selectedDate}:`);
+                    if (meal) {
+                        alert(`Meal "${meal}" saved for ${selectedDate} (DB logic to be added later).`);
+                    }
+                }
+            });
+            calendar.render();
+        });
+    </script>
+
+</body>
+</html>
