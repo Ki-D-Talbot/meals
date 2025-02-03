@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meal Tracker</title>
+    <title>{% block title %}My Meals App{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -63,14 +64,23 @@
     <div id="mySidebar" class="sidebar">
         <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
         <a href="{{ url_for('home') }}">Home</a>
-        <a href="{{ url_for('logout') }}">Logout</a>
+        <a href="{{ url_for('meal_feed') }}">Meal Feed</a>
+        <a href="{{ url_for('insights') }}">Insights</a>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('profile') }}">Profile</a>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        {% else %}
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register') }}">Register</a>
+        {% endif %}
     </div>
 
     <div id="main">
         <span style="font-size:30px;cursor:pointer" onclick="openNav()" class="menu-icon">&#9776;</span>
         <h2>Meal Tracker</h2>
-        <h1>Welcome, {{ username }}!</h1>
+        <h1>Welcome, {{ current_user.username if current_user.is_authenticated else 'Guest' }}!</h1>
         <div id="calendar"></div>
+        {% block content %}{% endblock %}
     </div>
 
     <script>
@@ -100,6 +110,6 @@
             calendar.render();
         });
     </script>
-
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
 </body>
 </html>

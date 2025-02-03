@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="feed-container">
+    <div class="meal-upload">
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" name="photo" accept="image/*" capture="environment">
+            <input type="text" name="caption" placeholder="What are you eating?">
+            <select name="meal_type">
+                <option value="breakfast">Breakfast</option>
+                <option value="lunch">Lunch</option>
+                <option value="dinner">Dinner</option>
+                <option value="snack">Snack</option>
+            </select>
+            <button type="submit">Share Meal</button>
+        </form>
+    </div>
+    
+    <div class="meals-grid">
+        {% for meal in meals %}
+        <div class="meal-card">
+            <img src="{{ meal.photo_url }}" alt="{{ meal.caption }}">
+            <div class="meal-info">
+                <h3>{{ meal.caption }}</h3>
+                <div class="meal-actions">
+                    <button class="like-btn" data-meal-id="{{ meal._id }}">
+                        ♥ {{ meal.likes|length }}
+                    </button>
+                    <div class="comments">
+                        {% for comment in meal.comments %}
+                        <div class="comment">
+                            <strong>{{ comment.user.username }}:</strong>
+                            {{ comment.text }}
+                        </div>
+                        {% endfor %}
+                        <form class="comment-form">
+                            <input type="text" placeholder="Add comment...">
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

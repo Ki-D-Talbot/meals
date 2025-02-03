@@ -1,0 +1,41 @@
+.sidebar {
+    height: 100%;
+    width: 250px;
+    position: fixed;
+    top: 0;
+    left: -250px;
+    background-color: #111;
+    overflow-x: hidden;
+    transition: 0.3s;
+    padding-top: 60px;
+}
+.sidebar a {
+    padding: 10px 15px;
+    text-decoration: none;
+    font-size: 25px;
+    color: #818181;
+    display: block;
+    transition: 0.3s;
+}
+.sidebar a:hover {
+    color: #f1f1f1;
+}
+.sidebar .closebtn {
+    position: absolute;
+    top: 0;
+    right: 25px;
+    font-size: 36px;
+    margin-left: 50px;
+}
+#main {
+    margin-left: 0;
+    transition: margin-left .3s;
+    padding: 16px;
+    width: 100%;
+}
+.menu-icon {
+    font-size: 30px;
+    cursor: pointer;
+    color: #111;
+    padding: 10px;
+}
