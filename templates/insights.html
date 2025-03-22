@@ -1,77 +1,198 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
+{% block title %}Meal Insights{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .stats-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        flex: 1;
+        min-width: 200px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 1rem;
+    }
+    
+    .chart-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .chart-card {
+        background-color: #ffffff;
+        border-radius: 10px;
+        padding: 20px;
+        flex: 1;
+        min-width: 300px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .recent-meals {
+        background-color: #ffffff;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .meal-item {
+        padding: 10px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .meal-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="insights-container">
-    <h1>Your Meal Insights</h1>
+<div class="container">
+    <h3>Your Meal Insights</h3>
     
-    <div class="insights-summary">
-        <div class="card">
-            <h3>Monthly Overview</h3>
-            <div id="meal-chart" style="height: 250px;"></div>
+    {% if meal_count == 0 %}
+        <div class="alert alert-info">
+            You haven't added any meals yet. Start tracking your meals to see insights!
+        </div>
+    {% else %}
+        <!-- Stats Overview -->
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-label">Total Meals</div>
+                <div class="stat-number">{{ meal_count }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">Favorite Food</div>
+                <div class="stat-number">{{ favorite_food }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">Favorite Meal Type</div>
+                <div class="stat-number">{{ favorite_meal_type }}</div>
+            </div>
         </div>
         
-        <div class="card">
-            <h3>Meal Stats</h3>
-            <div class="stats">
-                <p>Total Meals: <span id="total-meals">{{ meal_count }}</span></p>
-                <p>Most Active Day: <span id="active-day">{{ most_active_day }}</span></p>
-                <p>Favorite Meal Type: <span id="favorite-type">{{ favorite_meal_type }}</span></p>
+        <!-- Charts -->
+        <div class="chart-container">
+            <div class="chart-card">
+                <h4>Meals Over Time</h4>
+                <canvas id="timeChart"></canvas>
+            </div>
+            
+            <div class="chart-card">
+                <h4>Meal Types</h4>
+                <canvas id="mealTypeChart"></canvas>
             </div>
         </div>
-    </div>
-    
-    <h2>Recent Meals</h2>
-    <div class="recent-meals">
-        {% if recent_meals %}
-            {% for meal in recent_meals %}
-            <div class="meal-card">
-                <img src="{{ meal.photo_url }}" alt="{{ meal.meal_type }}">
-                <div class="meal-info">
-                    <p class="meal-type">{{ meal.meal_type }}</p>
-                    <p class="meal-date">{{ meal.created_at|string }}</p>
-                    <p class="meal-caption">{{ meal.caption }}</p>
-                    <p class="meal-likes">♥ {{ meal.likes|length if meal.likes else 0 }}</p>
-                </div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <p class="no-meals">No meals recorded yet. Start tracking your meals!</p>
-        {% endif %}
-    </div>
+        
+        <!-- Recent Meals -->
+        <div class="recent-meals">
+            <h4>Recent Meals</h4>
+            {% if recent_meals %}
+                {% for meal in recent_meals %}
+                    <div class="meal-item">
+                        <strong>{{ meal.caption }}</strong>
+                        <div>
+                            <span class="badge bg-secondary">{{ meal.meal_type }}</span>
+                            <small class="text-muted">{{ meal.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>No recent meals to display.</p>
+            {% endif %}
+        </div>
+    {% endif %}
 </div>
+{% endblock %}
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% block scripts %}
 <script>
-    // Initialize chart when data is available
-    {% if months and meal_counts %}
     document.addEventListener('DOMContentLoaded', function() {
-        const ctx = document.getElementById('meal-chart').getContext('2d');
-        const chart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: {{ months|tojson }},
-                datasets: [{
-                    label: 'Meals per Month',
-                    data: {{ meal_counts|tojson }},
-                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
+        {% if meal_count > 0 %}
+            // Time-series chart
+            var timeCtx = document.getElementById('timeChart').getContext('2d');
+            var timeChart = new Chart(timeCtx, {
+                type: 'bar',
+                data: {
+                    labels: {{ months|tojson }},
+                    datasets: [{
+                        label: 'Number of Meals',
+                        data: {{ meal_counts|tojson }},
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+            
+            // Meal type chart
+            var typeCtx = document.getElementById('mealTypeChart').getContext('2d');
+            var typeChart = new Chart(typeCtx, {
+                type: 'pie',
+                data: {
+                    labels: {{ meal_type_labels|tojson }},
+                    datasets: [{
+                        data: {{ meal_type_values|tojson }},
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.2)',
+                            'rgba(54, 162, 235, 0.2)',
+                            'rgba(255, 206, 86, 0.2)',
+                            'rgba(75, 192, 192, 0.2)',
+                            'rgba(153, 102, 255, 0.2)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        }
+                    }
+                }
+            });
+        {% endif %}
     });
-    {% endif %}
 </script>
 {% endblock %}

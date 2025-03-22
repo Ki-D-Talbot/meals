@@ -188,6 +188,10 @@ def insights():
         months = []
         meal_counts = []
 
+        # Track favorite foods and meal types
+        food_counts = {}
+        meal_types = {}
+
         if meal_count > 0:
             # Convert ObjectId and dates for JSON serialization
             for meal in user_meals:
@@ -204,58 +208,61 @@ def insights():
                 else:
                     meal_data[month_str] = 1
 
-            # Get the most active day (day with most meals)
-            day_counts = {}
-            for meal in user_meals:
-                day_str = meal["created_at"].strftime("%A")
-                if day_str in day_counts:
-                    day_counts[day_str] += 1
-                else:
-                    day_counts[day_str] = 1
-            most_active_day = (
-                max(day_counts, key=day_counts.get) if day_counts else "N/A"
-            )
-
-            # Get favorite meal type
-            meal_types = {}
-            for meal in user_meals:
+                # Count meal types
                 meal_type = meal.get("meal_type", "other")
                 if meal_type in meal_types:
                     meal_types[meal_type] += 1
                 else:
                     meal_types[meal_type] = 1
+
+                # Count foods (using caption as food name for simplicity)
+                caption = meal.get("caption", "").strip()
+                if caption:
+                    if caption in food_counts:
+                        food_counts[caption] += 1
+                    else:
+                        food_counts[caption] = 1
+
+            # Prepare data for charts
+            months = list(meal_data.keys())
+            meal_counts = list(meal_data.values())
+
+            # Get favorite food
+            favorite_food = (
+                max(food_counts, key=food_counts.get) if food_counts else "N/A"
+            )
+
+            # Get favorite meal type
             favorite_meal_type = (
                 max(meal_types, key=meal_types.get) if meal_types else "N/A"
             )
 
-            # Format data for Chart.js
-            months = list(meal_data.keys())
-            meal_counts = [meal_data[month] for month in months]
+            # Get meal type distribution for pie chart
+            meal_type_labels = list(meal_types.keys())
+            meal_type_values = list(meal_types.values())
+
         else:
-            most_active_day = "N/A"
+            favorite_food = "N/A"
             favorite_meal_type = "N/A"
+            meal_type_labels = []
+            meal_type_values = []
 
         return render_template(
             "insights.html",
             meal_count=meal_count,
-            most_active_day=most_active_day,
+            favorite_food=favorite_food,
             favorite_meal_type=favorite_meal_type,
             recent_meals=recent_meals,
             months=months,
             meal_counts=meal_counts,
+            meal_type_labels=meal_type_labels,
+            meal_type_values=meal_type_values,
         )
 
     except Exception as e:
-        # Log the error
-        print(f"Error in insights route: {str(e)}")
-        flash(f"An error occurred: {str(e)}", "danger")
-        return render_template(
-            "insights.html",
-            meal_count=0,
-            most_active_day="N/A",
-            favorite_meal_type="N/A",
-            recent_meals=[],
-        )
+        print(f"Error in insights page: {str(e)}")
+        flash("Error loading insights. Please try again.", "danger")
+        return redirect(url_for("home"))
 
 
 @app.route("/profile")
