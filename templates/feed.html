@@ -1,46 +1,197 @@
 {% extends "base.html" %}
 
+{% block title %}Meal Feed{% endblock %}
+
+{% block head %}
+<style>
+    .feed-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .meal-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        margin-bottom: 24px;
+        overflow: hidden;
+        transition: transform 0.2s;
+    }
+    
+    .meal-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .meal-header {
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        border-bottom: 1px solid #f1f1f1;
+    }
+    
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        margin-right: 12px;
+        object-fit: cover;
+    }
+    
+    .user-info {
+        flex-grow: 1;
+    }
+    
+    .username {
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    .meal-time {
+        color: #666;
+        font-size: 14px;
+        margin: 0;
+    }
+    
+    .meal-content {
+        padding: 16px;
+    }
+    
+    .meal-caption {
+        font-size: 16px;
+        margin-bottom: 12px;
+    }
+    
+    .meal-type-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 14px;
+        font-weight: 500;
+        background-color: #f0f7ff;
+        color: #0066cc;
+    }
+    
+    .meal-actions {
+        display: flex;
+        padding: 12px 16px;
+        border-top: 1px solid #f1f1f1;
+    }
+    
+    .action-btn {
+        background: none;
+        border: none;
+        color: #555;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        margin-right: 16px;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    }
+    
+    .action-btn:hover {
+        background-color: #f5f5f5;
+    }
+    
+    .action-btn i {
+        margin-right: 6px;
+    }
+    
+    .empty-feed {
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    
+    .empty-feed-icon {
+        font-size: 48px;
+        color: #ddd;
+        margin-bottom: 16px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="feed-container">
-    <div class="meal-upload">
-        <form id="uploadForm" enctype="multipart/form-data">
-            <input type="file" name="photo" accept="image/*" capture="environment">
-            <input type="text" name="caption" placeholder="What are you eating?">
-            <select name="meal_type">
-                <option value="breakfast">Breakfast</option>
-                <option value="lunch">Lunch</option>
-                <option value="dinner">Dinner</option>
-                <option value="snack">Snack</option>
-            </select>
-            <button type="submit">Share Meal</button>
-        </form>
-    </div>
+    <h3>Meal Feed</h3>
     
-    <div class="meals-grid">
+    {% if not meals %}
+        <div class="empty-feed">
+            <div class="empty-feed-icon">
+                <i class="fas fa-utensils"></i>
+            </div>
+            <h4>No meals yet</h4>
+            <p>Meals you and others add will appear here.</p>
+        </div>
+    {% else %}
         {% for meal in meals %}
-        <div class="meal-card">
-            <img src="{{ meal.photo_url }}" alt="{{ meal.caption }}">
-            <div class="meal-info">
-                <h3>{{ meal.caption }}</h3>
-                <div class="meal-actions">
-                    <button class="like-btn" data-meal-id="{{ meal._id }}">
-                        ♥ {{ meal.likes|length }}
-                    </button>
-                    <div class="comments">
-                        {% for comment in meal.comments %}
-                        <div class="comment">
-                            <strong>{{ comment.user.username }}:</strong>
-                            {{ comment.text }}
-                        </div>
-                        {% endfor %}
-                        <form class="comment-form">
-                            <input type="text" placeholder="Add comment...">
-                        </form>
+            <div class="meal-card">
+                <div class="meal-header">
+                    <img src="{{ meal.user_avatar }}" alt="User avatar" class="user-avatar">
+                    <div class="user-info">
+                        <p class="username">{{ meal.username }}</p>
+                        <p class="meal-time">{{ meal.created_at.strftime('%B %d, %Y at %I:%M %p') }}</p>
                     </div>
                 </div>
+                
+                <div class="meal-content">
+                    <p class="meal-caption">{{ meal.caption }}</p>
+                    <span class="meal-type-badge">{{ meal.meal_type|title }}</span>
+                </div>
+                
+                <div class="meal-actions">
+                    <button class="action-btn like-btn" data-meal-id="{{ meal._id }}">
+                        <i class="{% if current_user.id in meal.likes %}fas{% else %}far{% endif %} fa-heart"></i> 
+                        {{ meal.likes|length }} Likes
+                    </button>
+                    <button class="action-btn comment-btn" data-meal-id="{{ meal._id }}">
+                        <i class="far fa-comment"></i> {{ meal.comments|length }} Comments
+                    </button>
+                </div>
             </div>
-        </div>
         {% endfor %}
-    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Like functionality
+    document.querySelectorAll('.like-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const mealId = this.getAttribute('data-meal-id');
+            
+            fetch(`/like/${mealId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update heart icon and count
+                    const icon = this.querySelector('i');
+                    if (data.action === 'liked') {
+                        icon.classList.remove('far');
+                        icon.classList.add('fas');
+                        icon.style.color = '#e74c3c';
+                    } else {
+                        icon.classList.remove('fas');
+                        icon.classList.add('far');
+                        icon.style.color = '';
+                    }
+                    
+                    // Update like count
+                    this.innerHTML = `${icon.outerHTML} ${data.like_count} Likes`;
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    });
+</script>
 {% endblock %}

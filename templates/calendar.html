@@ -143,6 +143,12 @@
     <h3>Your Meal Calendar</h3>
     <p>Click on any day to add a meal</p>
     
+    <!-- Debug info - remove in production -->
+    <div style="margin-bottom: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
+        <h5>Debug Info:</h5>
+        <p>Meals loaded: {{ meals|length }}</p>
+    </div>
+    
     <div id="calendar"></div>
     
     <!-- Modern Modal for Meal Entry -->

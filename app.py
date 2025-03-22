@@ -40,15 +40,24 @@ login_manager.login_view = "login"
 class User(UserMixin):
     def __init__(self, user_data):
         self.id = str(user_data["_id"])
-        self.username = user_data["username"]
-        self.email = user_data["email"]
+        self.username = user_data.get("username", "Unknown")
+        self.email = user_data.get("email", "")
         self.avatar = user_data.get("avatar", "/static/images/default-avatar.png")
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    user_data = mongo.db.users.find_one({"_id": ObjectId(user_id)})
-    return User(user_data) if user_data else None
+    try:
+        user_data = mongo.db.users.find_one({"_id": ObjectId(user_id)})
+        if user_data:
+            print(f"Debug: Loaded user {user_data.get('username')}")
+            return User(user_data)
+        else:
+            print(f"Debug: Failed to find user with ID {user_id}")
+            return None
+    except Exception as e:
+        print(f"Error loading user: {str(e)}")
+        return None
 
 
 # File upload validation
@@ -125,8 +134,78 @@ def logout():
 @app.route("/feed")
 @login_required
 def meal_feed():
-    meals = mongo.db.meals.find().sort("created_at", -1)
-    return render_template("feed.html", meals=meals)
+    try:
+        # First check if there are any meals at all (simpler query for debugging)
+        basic_meals = list(mongo.db.meals.find())
+        print(f"Debug: Found {len(basic_meals)} total meals in database")
+
+        if len(basic_meals) == 0:
+            # No meals in database yet
+            return render_template("feed.html", meals=[])
+
+        # Now try the full pipeline
+        pipeline = [
+            {"$sort": {"created_at": -1}},  # Newest first
+            {
+                "$lookup": {
+                    "from": "users",
+                    "localField": "user_id",
+                    "foreignField": "_id",
+                    "as": "user",
+                }
+            },
+            {
+                "$project": {
+                    "_id": 1,
+                    "caption": 1,
+                    "meal_type": 1,
+                    "created_at": 1,
+                    "likes": 1,
+                    "comments": 1,
+                    "user_id": 1,
+                    "user": 1,
+                }
+            },
+        ]
+
+        # Get the aggregation result
+        aggregated_meals = list(mongo.db.meals.aggregate(pipeline))
+        print(f"Debug: After aggregation, found {len(aggregated_meals)} meals")
+
+        # Manually format the meals for the template
+        formatted_meals = []
+        for meal in aggregated_meals:
+            # Format the meal data
+            meal_data = {
+                "_id": str(meal["_id"]),
+                "caption": meal.get("caption", ""),
+                "meal_type": meal.get("meal_type", "other"),
+                "created_at": meal.get("created_at", datetime.now()),
+                "likes": meal.get("likes", []),
+                "comments": meal.get("comments", []),
+            }
+
+            # Handle user data
+            users = meal.get("user", [])
+            if users:
+                # We found a user
+                user = users[0]
+                meal_data["username"] = user.get("username", "Unknown User")
+                meal_data["user_avatar"] = user.get(
+                    "avatar", "/static/images/default-avatar.png"
+                )
+            else:
+                # No user found
+                meal_data["username"] = "Unknown User"
+                meal_data["user_avatar"] = "/static/images/default-avatar.png"
+
+            formatted_meals.append(meal_data)
+
+        return render_template("feed.html", meals=formatted_meals)
+
+    except Exception as e:
+        print(f"Error in meal_feed: {str(e)}")
+        return render_template("feed.html", meals=[])
 
 
 @app.route("/add_meal", methods=["POST"])
@@ -138,12 +217,22 @@ def add_meal():
         meal_text = data.get("meal")
         meal_type = data.get("meal_type", "other")
 
-        # Create meal document
+        # Print debug info about current user
+        print(
+            f"Debug in add_meal: Current user ID is {current_user.id} of type {type(current_user.id)}"
+        )
+
+        # Create meal document - store user_id as both string and ObjectId to help debug
         new_meal = {
-            "user_id": current_user.id,
+            "user_id": ObjectId(current_user.id),  # Store as ObjectId
+            "user_id_str": current_user.id,  # Also store as string for debugging
             "caption": meal_text,
             "meal_type": meal_type,
-            "meal_date": datetime.strptime(meal_date, "%Y-%m-%d"),
+            "meal_date": (
+                datetime.strptime(meal_date, "%Y-%m-%d")
+                if meal_date
+                else datetime.now()
+            ),
             "created_at": datetime.utcnow(),
             "likes": [],
             "comments": [],
@@ -151,6 +240,13 @@ def add_meal():
 
         # Insert into database
         result = mongo.db.meals.insert_one(new_meal)
+        print(f"Debug: Added new meal with ID {result.inserted_id}")
+
+        # Verify the meal was added correctly
+        added_meal = mongo.db.meals.find_one({"_id": result.inserted_id})
+        print(
+            f"Debug: Verified meal in DB: {added_meal['caption']}, user_id: {added_meal['user_id']}"
+        )
 
         return jsonify({"success": True, "meal_id": str(result.inserted_id)})
     except Exception as e:
@@ -274,24 +370,48 @@ def profile():
 @app.route("/calendar")
 @login_required
 def calendar():
-    # Fetch user's meals for display in calendar
-    user_meals = list(mongo.db.meals.find({"user_id": current_user.id}))
+    try:
+        print(f"Debug: Retrieving meals for user ID: {current_user.id}")
+        print(f"Debug: User ID type: {type(current_user.id)}")
 
-    # Format meals for calendar
-    formatted_meals = []
-    for meal in user_meals:
-        meal_date = meal.get("meal_date")
-        if meal_date:
-            formatted_meals.append(
-                {
-                    "id": str(meal["_id"]),
-                    "title": meal["caption"],
-                    "start": meal_date.strftime("%Y-%m-%d"),
-                    "meal_type": meal.get("meal_type", "other"),
-                }
+        # First let's check what's in the database with a simpler query
+        all_meals = list(mongo.db.meals.find())
+        print(f"Debug: Total meals in database: {len(all_meals)}")
+
+        # Now try to get user-specific meals - first with string ID
+        user_meals_str = list(mongo.db.meals.find({"user_id": current_user.id}))
+        print(f"Debug: Found {len(user_meals_str)} meals with string user_id")
+
+        # Try with ObjectId
+        user_meals = list(mongo.db.meals.find({"user_id": ObjectId(current_user.id)}))
+        print(f"Debug: Found {len(user_meals)} meals with ObjectId user_id")
+
+        # Combine results to make sure we get all meals
+        combined_meals = user_meals + user_meals_str
+
+        # Format meals for calendar
+        formatted_meals = []
+        for meal in combined_meals:
+            meal_date = meal.get("meal_date")
+            print(
+                f"Debug: Processing meal: {meal.get('caption')} with date {meal_date}"
             )
+            if meal_date:
+                formatted_meals.append(
+                    {
+                        "id": str(meal["_id"]),
+                        "title": meal["caption"],
+                        "start": meal_date.strftime("%Y-%m-%d"),
+                        "meal_type": meal.get("meal_type", "other"),
+                    }
+                )
 
-    return render_template("calendar.html", meals=formatted_meals)
+        print(f"Debug: Formatted {len(formatted_meals)} meals for calendar")
+        return render_template("calendar.html", meals=formatted_meals)
+
+    except Exception as e:
+        print(f"Error in calendar route: {str(e)}")
+        return render_template("calendar.html", meals=[])
 
 
 @app.route("/test_db")
@@ -301,6 +421,28 @@ def test_db():
         return "Database connection is working!"
     except Exception as e:
         return f"Database connection failed: {e}"
+
+
+@app.route("/fix_meals")
+@login_required
+def fix_meals():
+    try:
+        # This route will fix meals with inconsistent user_id format
+        all_meals = list(mongo.db.meals.find())
+        fixed_count = 0
+
+        for meal in all_meals:
+            user_id = meal.get("user_id")
+            if isinstance(user_id, str):
+                # Convert string user_id to ObjectId
+                mongo.db.meals.update_one(
+                    {"_id": meal["_id"]}, {"$set": {"user_id": ObjectId(user_id)}}
+                )
+                fixed_count += 1
+
+        return f"Fixed {fixed_count} meals with string user_id."
+    except Exception as e:
+        return f"Error fixing meals: {str(e)}"
 
 
 if __name__ == "__main__":
