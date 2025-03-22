@@ -1,26 +1,78 @@
 {% extends "base.html" %}
 
-{% block content %}
-    <h2>Meal Tracker</h2>
-    
-    <!-- FullCalendar Container -->
-    <div id="calendar"></div>
+{% block title %}Meal Calendar{% endblock %}
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            var calendarEl = document.getElementById('calendar');
-            var calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
-                selectable: true,
-                dateClick: function(info) {
-                    let selectedDate = info.dateStr;
-                    let meal = prompt(`Enter meal for ${selectedDate}:`);
-                    if (meal) {
-                        alert(`Meal "${meal}" saved for ${selectedDate} (DB logic to be added later).`);
-                    }
+{% block content %}
+<div class="container">
+    <h3>Your Meal Calendar</h3>
+    <p>Click on any day to add a meal</p>
+    
+    <div id="calendar"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        
+        // Get meals from Flask template
+        var meals = {{ meals|tojson|safe }};
+        
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek'
+            },
+            events: meals,
+            eventClick: function(info) {
+                alert('Meal: ' + info.event.title + '\nType: ' + info.event.extendedProps.meal_type);
+            },
+            dateClick: function(info) {
+                let selectedDate = info.dateStr;
+                let meal = prompt(`Enter meal for ${selectedDate}:`);
+                if (meal) {
+                    // Prompt for meal type
+                    let mealType = prompt("Enter meal type (breakfast, lunch, dinner, snack):", "other");
+                    
+                    // Send data to server
+                    fetch('/add_meal', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            date: selectedDate,
+                            meal: meal,
+                            meal_type: mealType || 'other'
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(`Meal "${meal}" saved successfully!`);
+                            // Add the new event to the calendar without refreshing
+                            calendar.addEvent({
+                                id: data.meal_id,
+                                title: meal,
+                                start: selectedDate,
+                                meal_type: mealType || 'other'
+                            });
+                        } else {
+                            alert(`Error: ${data.error}`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Failed to save meal. Please try again.');
+                    });
                 }
-            });
-            calendar.render();
+            }
         });
-    </script>
+        
+        calendar.render();
+    });
+</script>
 {% endblock %}

@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="insights-container">
+    <h1>Your Meal Insights</h1>
+    
+    <div class="insights-summary">
+        <div class="card">
+            <h3>Monthly Overview</h3>
+            <div id="meal-chart" style="height: 250px;"></div>
+        </div>
+        
+        <div class="card">
+            <h3>Meal Stats</h3>
+            <div class="stats">
+                <p>Total Meals: <span id="total-meals">{{ meal_count }}</span></p>
+                <p>Most Active Day: <span id="active-day">{{ most_active_day }}</span></p>
+                <p>Favorite Meal Type: <span id="favorite-type">{{ favorite_meal_type }}</span></p>
+            </div>
+        </div>
+    </div>
+    
+    <h2>Recent Meals</h2>
+    <div class="recent-meals">
+        {% if recent_meals %}
+            {% for meal in recent_meals %}
+            <div class="meal-card">
+                <img src="{{ meal.photo_url }}" alt="{{ meal.meal_type }}">
+                <div class="meal-info">
+                    <p class="meal-type">{{ meal.meal_type }}</p>
+                    <p class="meal-date">{{ meal.created_at|string }}</p>
+                    <p class="meal-caption">{{ meal.caption }}</p>
+                    <p class="meal-likes">♥ {{ meal.likes|length if meal.likes else 0 }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="no-meals">No meals recorded yet. Start tracking your meals!</p>
+        {% endif %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Initialize chart when data is available
+    {% if months and meal_counts %}
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('meal-chart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: {{ months|tojson }},
+                datasets: [{
+                    label: 'Meals per Month',
+                    data: {{ meal_counts|tojson }},
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    });
+    {% endif %}
+</script>
+{% endblock %}
