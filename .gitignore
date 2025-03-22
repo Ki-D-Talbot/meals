@@ -1,2 +1,7 @@
-.venv
+// filepath: c:\Users\kital\Documents\GitHub\meals\.gitignore
 .env
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
