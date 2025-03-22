@@ -417,10 +417,49 @@ def calendar():
 @app.route("/test_db")
 def test_db():
     try:
-        mongo.db.meals.find_one()
-        return "Database connection is working!"
+        # Check if connection is established
+        client_info = mongo.cx.server_info()
+        db_names = mongo.cx.list_database_names()
+
+        # Check if we can access the database
+        collection_names = mongo.db.list_collection_names()
+
+        # Try to perform a simple operation
+        count = mongo.db.meals.count_documents({})
+
+        return f"""
+        <h3>MongoDB Connection Test</h3>
+        <p>Connection successful!</p>
+        <p>MongoDB version: {client_info.get('version')}</p>
+        <p>Available databases: {', '.join(db_names)}</p>
+        <p>Collections in mealsDB: {', '.join(collection_names)}</p>
+        <p>Number of meals: {count}</p>
+        """
     except Exception as e:
-        return f"Database connection failed: {e}"
+        # Detailed error information
+        error_detail = str(e)
+        connection_string = app.config.get("MONGO_URI", "")
+        # Hide the password in the connection string for security
+        if "mongodb+srv://" in connection_string:
+            safe_connection = connection_string.split("@")[0].split(":")
+            safe_connection = (
+                f"{safe_connection[0]}:****@" + connection_string.split("@")[1]
+            )
+        else:
+            safe_connection = "Connection string not found"
+
+        return f"""
+        <h3>MongoDB Connection Failed</h3>
+        <p>Error: {error_detail}</p>
+        <p>Connection string (password hidden): {safe_connection}</p>
+        <p>Check that:</p>
+        <ul>
+            <li>Your .env file exists and has the correct MONGO_URI</li>
+            <li>Your MongoDB Atlas username and password are correct</li>
+            <li>Your IP address is in the MongoDB Atlas Network Access list</li>
+            <li>Your database name is correct (mealsDB)</li>
+        </ul>
+        """
 
 
 @app.route("/fix_meals")
