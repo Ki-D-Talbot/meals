@@ -2,19 +2,186 @@
 
 {% block title %}Meal Calendar{% endblock %}
 
+{% block head %}
+<style>
+    #calendar {
+        margin-top: 20px;
+        margin-bottom: 40px;
+    }
+    
+    /* Modal styling */
+    .meal-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .meal-modal-content {
+        background-color: white;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        padding: 0;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        overflow: hidden;
+        animation: modalFadeIn 0.3s ease-out;
+    }
+    
+    .meal-modal-header {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .meal-modal-header h3 {
+        margin: 0;
+        color: #333;
+        font-size: 18px;
+    }
+    
+    .meal-modal-body {
+        padding: 20px;
+    }
+    
+    .meal-modal-footer {
+        background-color: #f8f9fa;
+        padding: 15px 20px;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .meal-form-group {
+        margin-bottom: 20px;
+    }
+    
+    .meal-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #555;
+    }
+    
+    .meal-input {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 16px;
+        transition: border-color 0.2s;
+    }
+    
+    .meal-input:focus {
+        border-color: #80bdff;
+        outline: none;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .meal-select {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 16px;
+        background-color: white;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23333' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+    }
+    
+    .meal-btn {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+    }
+    
+    .meal-btn-cancel {
+        background-color: #f8f9fa;
+        color: #6c757d;
+    }
+    
+    .meal-btn-cancel:hover {
+        background-color: #e9ecef;
+    }
+    
+    .meal-btn-save {
+        background-color: #007bff;
+        color: white;
+    }
+    
+    .meal-btn-save:hover {
+        background-color: #0069d9;
+    }
+    
+    .selected-date {
+        color: #007bff;
+        font-weight: 500;
+    }
+    
+    @keyframes modalFadeIn {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <h3>Your Meal Calendar</h3>
     <p>Click on any day to add a meal</p>
     
     <div id="calendar"></div>
+    
+    <!-- Modern Modal for Meal Entry -->
+    <div id="mealModal" class="meal-modal">
+        <div class="meal-modal-content">
+            <div class="meal-modal-header">
+                <h3>Add Meal for <span id="selectedDate" class="selected-date"></span></h3>
+            </div>
+            <div class="meal-modal-body">
+                <div class="meal-form-group">
+                    <label for="mealDescription" class="meal-label">What did you eat?</label>
+                    <input type="text" id="mealDescription" class="meal-input" placeholder="e.g., Grilled chicken with vegetables">
+                </div>
+                <div class="meal-form-group">
+                    <label for="mealType" class="meal-label">Meal Type</label>
+                    <select id="mealType" class="meal-select">
+                        <option value="breakfast">Breakfast</option>
+                        <option value="lunch">Lunch</option>
+                        <option value="dinner">Dinner</option>
+                        <option value="snack">Snack</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="meal-modal-footer">
+                <button id="cancelMeal" class="meal-btn meal-btn-cancel">Cancel</button>
+                <button id="saveMeal" class="meal-btn meal-btn-save">Save Meal</button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Calendar initialization
         var calendarEl = document.getElementById('calendar');
+        var dateSelected = '';
         
         // Get meals from Flask template
         var meals = {{ meals|tojson|safe }};
@@ -31,48 +198,113 @@
                 alert('Meal: ' + info.event.title + '\nType: ' + info.event.extendedProps.meal_type);
             },
             dateClick: function(info) {
-                let selectedDate = info.dateStr;
-                let meal = prompt(`Enter meal for ${selectedDate}:`);
-                if (meal) {
-                    // Prompt for meal type
-                    let mealType = prompt("Enter meal type (breakfast, lunch, dinner, snack):", "other");
-                    
-                    // Send data to server
-                    fetch('/add_meal', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            date: selectedDate,
-                            meal: meal,
-                            meal_type: mealType || 'other'
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            alert(`Meal "${meal}" saved successfully!`);
-                            // Add the new event to the calendar without refreshing
-                            calendar.addEvent({
-                                id: data.meal_id,
-                                title: meal,
-                                start: selectedDate,
-                                meal_type: mealType || 'other'
-                            });
-                        } else {
-                            alert(`Error: ${data.error}`);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Failed to save meal. Please try again.');
-                    });
-                }
+                // Show modal instead of using prompts
+                dateSelected = info.dateStr;
+                document.getElementById('selectedDate').textContent = formatDate(dateSelected);
+                document.getElementById('mealModal').style.display = 'flex';
+                document.getElementById('mealDescription').focus();
             }
         });
         
         calendar.render();
+        
+        // Modal functionality
+        document.getElementById('cancelMeal').addEventListener('click', function() {
+            closeModal();
+        });
+        
+        document.getElementById('saveMeal').addEventListener('click', function() {
+            saveMeal();
+        });
+        
+        // Close modal if clicked outside
+        document.getElementById('mealModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+        
+        // Handle Enter key in meal description field
+        document.getElementById('mealDescription').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                saveMeal();
+            }
+        });
+        
+        function closeModal() {
+            document.getElementById('mealModal').style.display = 'none';
+            document.getElementById('mealDescription').value = '';
+            document.getElementById('mealType').value = 'other';
+        }
+        
+        function saveMeal() {
+            const mealText = document.getElementById('mealDescription').value.trim();
+            const mealType = document.getElementById('mealType').value;
+            
+            if (!mealText) {
+                // Highlight the input field if empty
+                document.getElementById('mealDescription').style.borderColor = '#dc3545';
+                setTimeout(() => {
+                    document.getElementById('mealDescription').style.borderColor = '#ced4da';
+                }, 2000);
+                return;
+            }
+            
+            // Send data to server
+            fetch('/add_meal', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    date: dateSelected,
+                    meal: mealText,
+                    meal_type: mealType
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Add the new event to the calendar
+                    calendar.addEvent({
+                        id: data.meal_id,
+                        title: mealText,
+                        start: dateSelected,
+                        meal_type: mealType
+                    });
+                    
+                    // Show success indicator
+                    const saveBtn = document.getElementById('saveMeal');
+                    const originalText = saveBtn.textContent;
+                    saveBtn.textContent = '✓ Saved!';
+                    saveBtn.style.backgroundColor = '#28a745';
+                    
+                    // Reset button after delay
+                    setTimeout(() => {
+                        closeModal();
+                        saveBtn.textContent = originalText;
+                        saveBtn.style.backgroundColor = '';
+                    }, 1000);
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to save meal. Please try again.');
+            });
+        }
+        
+        // Helper function to format date nicely
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
     });
 </script>
 {% endblock %}
