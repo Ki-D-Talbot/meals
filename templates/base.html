@@ -58,6 +58,15 @@
             padding: 10px;
         }
     </style>
+    <!-- Favicon and app icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    
+    <!-- Force favicon refresh with version parameter -->
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=2">
     {% block head %}{% endblock %}
 </head>
 <body>
