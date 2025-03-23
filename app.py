@@ -273,8 +273,11 @@ def like_meal(meal_id):
 def insights():
     try:
         # Get meals for the current user
-        user_meals = list(mongo.db.meals.find({"user_id": current_user.id}))
-
+        print(f"Insights: Retrieving data for user {current_user.id}")
+        
+        user_meals = list(mongo.db.meals.find({"user_id": ObjectId(current_user.id)}))
+        print(f"Insights: Found {len(user_meals)} meals")
+        
         # Basic stats
         meal_count = len(user_meals)
         recent_meals = user_meals[:5] if meal_count > 0 else []
