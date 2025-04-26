@@ -1,6 +1,9 @@
 
 # Meal Tracking App
 
+## Link to site
+https://meals-4vjo.onrender.com
+
 ## Description
 
 This project is a Flask-based web application that allows users to track their meals, plan meals using a calendar, and avoid the habit of eating the same meals repeatedly. Users can create an account, log in, and interact with the meal calendar. The app is connected to a **MongoDB** database, which stores user information, meal data, and meal categories.
