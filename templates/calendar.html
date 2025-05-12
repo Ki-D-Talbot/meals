@@ -38,12 +38,22 @@
         background-color: #f8f9fa;
         padding: 20px;
         border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     
     .meal-modal-header h3 {
         margin: 0;
         color: #333;
         font-size: 18px;
+    }
+    
+    .close-modal {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
     }
     
     .meal-modal-body {
@@ -126,6 +136,16 @@
         background-color: #0069d9;
     }
     
+    .meal-btn-delete {
+        background-color: #dc3545;
+        color: white;
+        margin-right: auto;
+    }
+    
+    .meal-btn-delete:hover {
+        background-color: #c82333;
+    }
+    
     .selected-date {
         color: #007bff;
         font-weight: 500;
@@ -143,19 +163,14 @@
     <h3>Your Meal Calendar</h3>
     <p>Click on any day to add a meal</p>
     
-    <!-- Debug info - remove in production -->
-    <div style="margin-bottom: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
-        <h5>Debug Info:</h5>
-        <p>Meals loaded: {{ meals|length }}</p>
-    </div>
-    
     <div id="calendar"></div>
     
-    <!-- Modern Modal for Meal Entry -->
+    <!-- Modal for Meal Entry -->
     <div id="mealModal" class="meal-modal">
         <div class="meal-modal-content">
             <div class="meal-modal-header">
                 <h3>Add Meal for <span id="selectedDate" class="selected-date"></span></h3>
+                <button type="button" class="close-modal">&times;</button>
             </div>
             <div class="meal-modal-body">
                 <div class="meal-form-group">
@@ -169,11 +184,12 @@
                         <option value="lunch">Lunch</option>
                         <option value="dinner">Dinner</option>
                         <option value="snack">Snack</option>
-                        <option value="other">Other</option>
+                        <option value="other" selected>Other</option>
                     </select>
                 </div>
             </div>
             <div class="meal-modal-footer">
+                <button id="deleteMeal" class="meal-btn meal-btn-delete" style="display: none;">Delete Meal</button>
                 <button id="cancelMeal" class="meal-btn meal-btn-cancel">Cancel</button>
                 <button id="saveMeal" class="meal-btn meal-btn-save">Save Meal</button>
             </div>
@@ -188,6 +204,10 @@
         // Calendar initialization
         var calendarEl = document.getElementById('calendar');
         var dateSelected = '';
+        var currentMealId = null; // Track if we're editing an existing meal
+        var isEditing = false;
+        var mealText = '';
+        var mealType = 'other';
         
         // Get meals from Flask template
         var meals = {{ meals|tojson|safe }};
@@ -201,11 +221,43 @@
             },
             events: meals,
             eventClick: function(info) {
-                alert('Meal: ' + info.event.title + '\nType: ' + info.event.extendedProps.meal_type);
+                // Show edit modal when clicking an existing meal
+                currentMealId = info.event.id;
+                isEditing = true;
+                dateSelected = info.event.startStr;
+                document.getElementById('selectedDate').textContent = formatDate(dateSelected);
+                document.getElementById('mealDescription').value = info.event.title;
+                document.getElementById('mealType').value = info.event.extendedProps.meal_type || 'other';
+                
+                // Change modal title and button text for editing
+                document.querySelector('.meal-modal-header h3').textContent = 'Edit Meal for ' + formatDate(dateSelected);
+                document.getElementById('saveMeal').textContent = 'Update Meal';
+                
+                // Show delete button
+                document.getElementById('deleteMeal').style.display = 'block';
+                
+                // Show the modal
+                document.getElementById('mealModal').style.display = 'flex';
+                document.getElementById('mealDescription').focus();
             },
             dateClick: function(info) {
-                // Show modal instead of using prompts
+                // Show modal for adding a new meal
                 dateSelected = info.dateStr;
+                isEditing = false;
+                currentMealId = null;
+                
+                // Reset the form
+                document.getElementById('mealDescription').value = '';
+                document.getElementById('mealType').value = 'other';
+                
+                // Change modal title and button text for adding
+                document.querySelector('.meal-modal-header h3').textContent = 'Add Meal for ' + formatDate(dateSelected);
+                document.getElementById('saveMeal').textContent = 'Save Meal';
+                
+                // Hide delete button
+                document.getElementById('deleteMeal').style.display = 'none';
+                
+                // Show the modal
                 document.getElementById('selectedDate').textContent = formatDate(dateSelected);
                 document.getElementById('mealModal').style.display = 'flex';
                 document.getElementById('mealDescription').focus();
@@ -214,33 +266,56 @@
         
         calendar.render();
         
-        // Modal functionality
-        document.getElementById('cancelMeal').addEventListener('click', function() {
-            closeModal();
-        });
-        
-        document.getElementById('saveMeal').addEventListener('click', function() {
-            saveMeal();
-        });
-        
-        // Close modal if clicked outside
-        document.getElementById('mealModal').addEventListener('click', function(e) {
-            if (e.target === this) {
+        // Debug the events and calendar behavior
+        console.log("Initial meals loaded:", meals);
+
+        // Add explicit event handler registration
+        function registerEventHandlers() {
+            console.log("Registering event handlers");
+            
+            // Modal functionality
+            document.getElementById('cancelMeal').addEventListener('click', function() {
                 closeModal();
-            }
-        });
-        
-        // Handle Enter key in meal description field
-        document.getElementById('mealDescription').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
+            });
+            
+            document.querySelector('.close-modal').addEventListener('click', function() {
+                closeModal();
+            });
+            
+            document.getElementById('saveMeal').addEventListener('click', function() {
                 saveMeal();
-            }
-        });
-        
+            });
+            
+            document.getElementById('deleteMeal').addEventListener('click', function() {
+                if (confirm('Are you sure you want to delete this meal?')) {
+                    deleteMeal();
+                }
+            });
+            
+            // Close modal if clicked outside
+            document.getElementById('mealModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeModal();
+                }
+            });
+            
+            // Handle Enter key in meal description field
+            document.getElementById('mealDescription').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    saveMeal();
+                }
+            });
+        }
+
+        // Call the function to register handlers
+        registerEventHandlers();
+
         function closeModal() {
             document.getElementById('mealModal').style.display = 'none';
             document.getElementById('mealDescription').value = '';
             document.getElementById('mealType').value = 'other';
+            currentMealId = null;
+            isEditing = false;
         }
         
         function saveMeal() {
@@ -256,48 +331,126 @@
                 return;
             }
             
-            // Send data to server
-            fetch('/add_meal', {
+            if (isEditing && currentMealId) {
+                // Update existing meal
+                fetch(`/update_meal/${currentMealId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        date: dateSelected,
+                        meal: mealText,
+                        meal_type: mealType
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Find and remove the old event
+                        const existingEvent = calendar.getEventById(currentMealId);
+                        if (existingEvent) {
+                            existingEvent.remove();
+                        }
+                        
+                        // Add the updated event
+                        calendar.addEvent({
+                            id: currentMealId,
+                            title: mealText,
+                            start: dateSelected,
+                            extendedProps: {
+                                meal_type: mealType
+                            }
+                        });
+                        
+                        // Refresh calendar event handlers
+                        setTimeout(() => {
+                            calendar.refetchEvents();
+                            console.log("Calendar events refreshed after update");
+                            closeModal();
+                            saveBtn.textContent = originalText;
+                            saveBtn.style.backgroundColor = '';
+                        }, 1000);
+                    } else {
+                        alert(`Error: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to update meal. Please try again.');
+                });
+            } else {
+                // Add new meal
+                fetch('/add_meal', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        date: dateSelected,
+                        meal: mealText,
+                        meal_type: mealType
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Add the new event to the calendar
+                        calendar.addEvent({
+                            id: data.meal_id,
+                            title: mealText,
+                            start: dateSelected,
+                            extendedProps: {
+                                meal_type: mealType
+                            }
+                        });
+                        
+                        // Refresh calendar event handlers
+                        setTimeout(() => {
+                            calendar.refetchEvents();
+                            console.log("Calendar events refreshed after adding new meal");
+                            closeModal();
+                            saveBtn.textContent = originalText;
+                            saveBtn.style.backgroundColor = '';
+                        }, 1000);
+                    } else {
+                        alert(`Error: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to save meal. Please try again.');
+                });
+            }
+        }
+        
+        function deleteMeal() {
+            if (!currentMealId) return;
+            
+            fetch(`/delete_meal/${currentMealId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    date: dateSelected,
-                    meal: mealText,
-                    meal_type: mealType
-                })
+                }
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Add the new event to the calendar
-                    calendar.addEvent({
-                        id: data.meal_id,
-                        title: mealText,
-                        start: dateSelected,
-                        meal_type: mealType
-                    });
+                    // Remove the event from calendar
+                    const existingEvent = calendar.getEventById(currentMealId);
+                    if (existingEvent) {
+                        existingEvent.remove();
+                    }
                     
-                    // Show success indicator
-                    const saveBtn = document.getElementById('saveMeal');
-                    const originalText = saveBtn.textContent;
-                    saveBtn.textContent = '✓ Saved!';
-                    saveBtn.style.backgroundColor = '#28a745';
-                    
-                    // Reset button after delay
-                    setTimeout(() => {
-                        closeModal();
-                        saveBtn.textContent = originalText;
-                        saveBtn.style.backgroundColor = '';
-                    }, 1000);
+                    // Close modal
+                    closeModal();
                 } else {
                     alert(`Error: ${data.error}`);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Failed to save meal. Please try again.');
+                alert('Failed to delete meal. Please try again.');
             });
         }
         

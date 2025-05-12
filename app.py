@@ -254,6 +254,70 @@ def add_meal():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/update_meal/<meal_id>", methods=["POST"])
+@login_required
+def update_meal(meal_id):
+    try:
+        data = request.json
+        meal_date = data.get("date")
+        meal_text = data.get("meal")
+        meal_type = data.get("meal_type", "other")
+
+        # Check if meal exists and belongs to current user
+        meal = mongo.db.meals.find_one({"_id": ObjectId(meal_id)})
+        if not meal:
+            return jsonify({"error": "Meal not found"}), 404
+
+        # Check if user owns this meal
+        meal_user_id = meal.get("user_id")
+        if str(meal_user_id) != current_user.id and meal_user_id != current_user.id:
+            return (
+                jsonify({"error": "You don't have permission to edit this meal"}),
+                403,
+            )
+
+        # Update the meal
+        update_data = {
+            "caption": meal_text,
+            "meal_type": meal_type,
+        }
+
+        # Only update date if provided
+        if meal_date:
+            update_data["meal_date"] = datetime.strptime(meal_date, "%Y-%m-%d")
+
+        mongo.db.meals.update_one({"_id": ObjectId(meal_id)}, {"$set": update_data})
+
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/delete_meal/<meal_id>", methods=["POST"])
+@login_required
+def delete_meal(meal_id):
+    try:
+        # Check if meal exists and belongs to current user
+        meal = mongo.db.meals.find_one({"_id": ObjectId(meal_id)})
+        if not meal:
+            return jsonify({"error": "Meal not found"}), 404
+
+        # Check if user owns this meal
+        meal_user_id = meal.get("user_id")
+        if str(meal_user_id) != current_user.id and meal_user_id != current_user.id:
+            return (
+                jsonify({"error": "You don't have permission to delete this meal"}),
+                403,
+            )
+
+        # Delete the meal
+        mongo.db.meals.delete_one({"_id": ObjectId(meal_id)})
+
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # Social features
 @app.route("/like/<meal_id>", methods=["POST"])
 @login_required
@@ -274,10 +338,10 @@ def insights():
     try:
         # Get meals for the current user
         print(f"Insights: Retrieving data for user {current_user.id}")
-        
+
         user_meals = list(mongo.db.meals.find({"user_id": ObjectId(current_user.id)}))
         print(f"Insights: Found {len(user_meals)} meals")
-        
+
         # Basic stats
         meal_count = len(user_meals)
         recent_meals = user_meals[:5] if meal_count > 0 else []
