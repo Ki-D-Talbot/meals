@@ -51,7 +51,7 @@ pip install -r requirements.txt
 2. **Clone the repository:**
 
    ```bash
-   git clone <repository-url>
+   git clone [<repository-url>](https://github.com/Ki-D-Talbot/meals/tree/main)
    cd meals-app
    ```
 
