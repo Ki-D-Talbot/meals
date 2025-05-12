@@ -441,15 +441,15 @@ def calendar():
         print(f"Debug: Retrieving meals for user ID: {current_user.id}")
         print(f"Debug: User ID type: {type(current_user.id)}")
 
-        # First let's check what's in the database with a simpler query
+        # Check what's in the database
         all_meals = list(mongo.db.meals.find())
         print(f"Debug: Total meals in database: {len(all_meals)}")
 
-        # Now try to get user-specific meals - first with string ID
+        # Get user-specific meals - first with string ID
         user_meals_str = list(mongo.db.meals.find({"user_id": current_user.id}))
         print(f"Debug: Found {len(user_meals_str)} meals with string user_id")
 
-        # Try with ObjectId
+        # Then try with ObjectId
         user_meals = list(mongo.db.meals.find({"user_id": ObjectId(current_user.id)}))
         print(f"Debug: Found {len(user_meals)} meals with ObjectId user_id")
 
