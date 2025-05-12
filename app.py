@@ -469,7 +469,9 @@ def calendar():
                         "id": str(meal["_id"]),
                         "title": meal["caption"],
                         "start": meal_date.strftime("%Y-%m-%d"),
-                        "meal_type": meal.get("meal_type", "other"),
+                        "extendedProps": {  # Changed: meal_type is now under extendedProps
+                            "meal_type": meal.get("meal_type", "other")
+                        },
                     }
                 )
 
